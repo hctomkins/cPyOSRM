@@ -10,6 +10,7 @@
 #include "osrm/osrm.hpp"
 #include "osrm/status.hpp"
 #include "osrm/engine/api/base_result.hpp"
+#include "mapbox/variant.hpp"
 
 #include <exception>
 #include <Eigen/Dense>
@@ -20,6 +21,23 @@ using namespace osrm;
 
 namespace py = pybind11;
 using RowMatrixXd = Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+
+
+struct EigenRenderer
+{
+    explicit EigenRenderer(Eigen::Ref<RowMatrixXd> &_out, int i, int j) : out(_out), i(i), j(j) {}
+    void operator()(const json::Number &number) const {out(i,j) = number.value;}
+    void operator()(const json::Null &) const {out(i,j) = 120.0*60.0;}
+    void operator()(const json::Object &object) const {}
+    void operator()(const json::Array &array) const {}
+    void operator()(const json::True &) const {}
+    void operator()(const json::False &) const {}
+    void operator()(const json::String &string) const {}
+
+private:
+    Eigen::Ref<RowMatrixXd> &out;
+    int i, j;
+};
 
 
 class PyOSRM {
@@ -69,8 +87,8 @@ public:
             for(int i = 0; i < sources.size(); ++i){
                 const auto source_array = duration.values[i].get<json::Array>();
                 for(int j = 0; j < dests.size(); ++j) {
-                    float dest_time = source_array.values[j].get<json::Number>().value;
-                    dest(i,j) = dest_time;
+                    EigenRenderer renderer(dest, i, j);
+                    mapbox::util::apply_visitor(renderer, source_array.values[j]);
                 }
             }
         }
