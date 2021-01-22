@@ -58,7 +58,9 @@ public:
             params.destinations.push_back(py_dest.cast<int>());
         }
         engine::api::ResultT result = json::Object();
+        py::gil_scoped_release release;
         const auto status = osrm.Table(params, result);
+        py::gil_scoped_acquire acquire;
         if (status == Status::Ok){
             auto &json_result = result.get<json::Object>();
             const auto duration = json_result.values["durations"].get<json::Array>();
